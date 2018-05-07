@@ -1,0 +1,39 @@
+# Copyright (C) 2018 Ola Benderius
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+FROM osblinnikov/rosdocker as builder
+MAINTAINER Ola Benderius "ola.benderius@chalmers.se"
+
+RUN sudo apt-get update && sudo apt-get -y upgrade
+RUN sudo apt-get -y install python-dev
+
+ADD . /opt/sources
+WORKDIR /opt/sources
+RUN sudo mkdir build && \
+    cd build && \
+    sudo cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp/dest .. && \
+    sudo make && sudo make install
+
+
+FROM osblinnikov/rosdocker
+MAINTAINER Ola Benderius "ola.benderius@chalmers.se"
+
+RUN sudo apt-get update && sudo apt-get -y upgrade
+
+WORKDIR /usr/bin
+COPY --from=builder /tmp/dest /usr
+CMD ["/usr/bin/opendlv-gw-ros-json"]
+
+
