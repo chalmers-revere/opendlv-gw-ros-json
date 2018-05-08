@@ -17,7 +17,13 @@ FROM osblinnikov/rosdocker as builder
 MAINTAINER Ola Benderius "ola.benderius@chalmers.se"
 
 RUN sudo apt-get update && sudo apt-get -y upgrade
-RUN sudo apt-get -y install python-dev
+RUN sudo apt-get -y install python-dev software-properties-common
+
+RUN sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+RUN sudo add-apt-repository ppa:george-edison55/cmake-3.x
+RUN sudo apt-get update && sudo apt-get -y upgrade
+RUN sudo apt-get -y install gcc-6 g++-6 cmake
+RUN sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6
 
 ADD . /opt/sources
 WORKDIR /opt/sources
@@ -30,10 +36,13 @@ RUN sudo mkdir build && \
 FROM osblinnikov/rosdocker
 MAINTAINER Ola Benderius "ola.benderius@chalmers.se"
 
-RUN sudo apt-get update && sudo apt-get -y upgrade
+#RUN sudo apt-get update && sudo apt-get -y upgrade
+#RUN sudo apt-get -y install software-properties-common
+
+#RUN sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+#RUN sudo apt-get update && sudo apt-get -y upgrade
+#RUN sudo apt-get -y install libstdc++-6-dev
 
 WORKDIR /usr/bin
 COPY --from=builder /tmp/dest /usr
 CMD ["/usr/bin/opendlv-gw-ros-json"]
-
-

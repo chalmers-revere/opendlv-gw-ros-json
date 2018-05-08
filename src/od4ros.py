@@ -4,25 +4,69 @@
 import roslib
 import rospy
 
+import socket
+import sys
+
 from std_msgs.msg import String
-from ctypes import CDLL
 
-pub = rospy.Publisher('fromOpendlv', String, queue_size=10)
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+connections = []
 
-def dataToOd4(data):
-    # Return to OD4 (C++) part.
-    return data
+def dataFromRosToOd4(data):
+    global connections
 
-def dataFromOd4(data):
-    global pub
+    liveConnections = []
+
+    for connection in connections:
+        try:
+            print('Python: data sent to Od4', data)
+            connection.sendall(data)
+            liveConnections.append(connection)
+    
+    connections = liveConnections
+
+
+def dataFromOd4ToRos(pub, data):
+    print('Python: data sent to Ros', data)
     pub.publish(data)
 
-def startRos(cid):
+def start():
+    global connections, sock, pub
+
+    tcpPort = 9000
+
     print('Python: setting up ROS node.')
 
-    od4ros = CDLL('/usr/lib/libod4ros.so')
-    od4ros.start(cid)
-
-    rospy.Subscriber('toOpendlv', String, dataToOd4)
+    pub = rospy.Publisher('fromOpendlv', String, queue_size = 10)
     rospy.init_node('opendlvJson')
-    rospy.spin()
+    rospy.Subscriber('toOpendlv', String, dataFromRosToOd4)
+
+    print('Python: starting TCP server')
+
+    server_address = ('localhost', tcpPort)
+    sock.bind(server_address)
+
+    while True:
+        print('Waiting for a connection')
+        connection, client_address = sock.accept()
+        atexit.register(closeConnection, connection)
+
+        connections.append(connection)
+
+        try:
+            print('Connection from', client_address)
+            
+            buffer = []
+            while True:
+                data = connection.recv(1024)
+                for b in data:
+                    buffer.append(b)
+
+                if str(buffer[-1]) == '\n':
+                    dataFromOd4ToRos(pub, ''.join(buffer))
+                    buffer = []
+        finally:
+            connection.close()
+
+def closeConnection(connection):
+    connection.close()

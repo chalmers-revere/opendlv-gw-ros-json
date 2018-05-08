@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <bitset>
 #include <memory>
 #include <iostream>
 #include <sstream>
@@ -27,14 +28,52 @@ int32_t main(int32_t argc, char **argv)
 {
   int32_t retCode{0};
   auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
-  if (0 == commandlineArguments.count("cid")) {
+  if (0 == commandlineArguments.count("cid") || 0 == commandlineArguments.count("odvd")) {
     std::cerr << argv[0] << " is an OpenDLV to ROS interface for bidirectional transactions via JSON." << std::endl;
-    std::cerr << "Usage:   " << argv[0] << " --cid=<OpenDaVINCI session> --verbose" << std::endl;
-    std::cerr << "Example: " << argv[0] << " --cid=111" << std::endl;
+    std::cerr << "Usage:   " << argv[0] << " --cid=<OpenDaVINCI session> --odvd=<ODVD message list file> --verbose" << std::endl;
+    std::cerr << "Example: " << argv[0] << " --cid=111 --odvd=messages.odvd" << std::endl;
     retCode = 1;
   } else {
     bool const VERBOSE{commandlineArguments.count("verbose") != 0};
     uint16_t const CID = static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]));
+    std::string const ODVD = commandlineArguments["odvd"];
+    std::string const ADDRESS = "127.0.0.1";
+    uint16_t const TCP_PORT = 9000;
+
+    std::ifstream is(ODVD);
+    std::stringstream buffer;
+    buffer << is.rdbuf();
+
+    cluon::EnvelopeConverter envConverter;
+    envConverter.setMessageSpecification(std::string(buffer.str()));
+
+    std::unique_ptr<cluon::TCPConnection> tcpConnection;
+
+    auto onIncomingEnvelope([&tcpConnection, &envConverter](cluon::data::Envelope &&envelope) {
+        if (tcpConnection != nullptr && tcpConnection->isRunning()) {
+          std::string JSON = envConverter.getJSONFromEnvelope(envelope);
+          tcpConnection->send(std::move(JSON));
+        }
+      });
+    cluon::OD4Session od4{CID, onIncomingEnvelope};
+
+
+    auto onIncomingTcpData([&od4, &envConverter](std::string &&data, std::chrono::system_clock::time_point &&) {
+
+        uint32_t messageId;
+
+        std::stringstream sstr;
+        sstr.str(data);
+        sstr.read(reinterpret_cast<char*>(&messageId), sizeof(uint32_t));
+
+        std::string json = data.substr(3);
+
+        std::string proto{envConverter.getProtoEncodedEnvelopeFromJSONWithoutTimeStamps(json, messageId, 0)};
+        
+        od4.send(proto, cluon::time::now(), 0);
+      });
+
+    tcpConnection.reset(new cluon::TCPConnection(ADDRESS, TCP_PORT, onIncomingTcpData, nullptr));
 
     Py_Initialize();
     if (VERBOSE) {
@@ -50,7 +89,7 @@ int32_t main(int32_t argc, char **argv)
     Py_DECREF(name);
 
     if (module != nullptr) {
-      std::string const START_FUNC_NAME = "startRos";
+      std::string const START_FUNC_NAME = "start";
       PyObject *startRosFunc = PyObject_GetAttrString(module, START_FUNC_NAME.c_str());
 
       if (startRosFunc && PyCallable_Check(startRosFunc)) {
@@ -82,10 +121,6 @@ int32_t main(int32_t argc, char **argv)
     }
 
     Py_Finalize();
-
-  //  while (od4.isRunning()) {
-  //    std::this_thread::sleep_for(std::chrono::seconds(1));
-  //  }
   }
   return retCode;
 }
