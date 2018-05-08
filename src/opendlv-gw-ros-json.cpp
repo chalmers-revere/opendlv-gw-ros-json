@@ -69,8 +69,14 @@ int32_t main(int32_t argc, char **argv)
         std::string json = data.substr(3);
 
         std::string proto{envConverter.getProtoEncodedEnvelopeFromJSONWithoutTimeStamps(json, messageId, 0)};
+        cluon::data::Envelope env;
+        env.dataType(messageId)
+           .senderStamp(0)
+           .sampleTimeStamp(cluon::time::now())
+           .serializedData(proto)
+           .sent(cluon::time::now());
         
-        od4.send(proto, cluon::time::now(), 0);
+        od4.send(std::move(env));
       });
 
     tcpConnection.reset(new cluon::TCPConnection(ADDRESS, TCP_PORT, onIncomingTcpData, nullptr));
