@@ -22,6 +22,8 @@ def dataFromRosToOd4(data):
             print('Python: data sent to Od4', data)
             connection.sendall(data)
             liveConnections.append(connection)
+        except:
+            pass
     
     connections = liveConnections
 
@@ -31,9 +33,15 @@ def dataFromOd4ToRos(pub, data):
     pub.publish(data)
 
 def start():
-    global connections, sock, pub
+    global connections, sock
 
     tcpPort = 9000
+
+    print('Python: starting TCP server')
+
+    server_address = ('localhost', tcpPort)
+    sock.bind(server_address)
+    sock.listen(1)
 
     print('Python: setting up ROS node.')
 
@@ -41,16 +49,8 @@ def start():
     rospy.init_node('opendlvJson')
     rospy.Subscriber('toOpendlv', String, dataFromRosToOd4)
 
-    print('Python: starting TCP server')
-
-    server_address = ('localhost', tcpPort)
-    sock.bind(server_address)
-
     while True:
-        print('Waiting for a connection')
         connection, client_address = sock.accept()
-        atexit.register(closeConnection, connection)
-
         connections.append(connection)
 
         try:
@@ -62,11 +62,8 @@ def start():
                 for b in data:
                     buffer.append(b)
 
-                if str(buffer[-1]) == '\n':
+                if str(buffer[-1]) == '}' and str(buffer[-2]) == '}':
                     dataFromOd4ToRos(pub, ''.join(buffer))
                     buffer = []
         finally:
             connection.close()
-
-def closeConnection(connection):
-    connection.close()

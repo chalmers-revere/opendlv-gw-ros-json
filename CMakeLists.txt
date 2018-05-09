@@ -64,3 +64,5 @@ target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
 ################################################################################
 install(TARGETS ${PROJECT_NAME} DESTINATION bin COMPONENT ${PROJECT_NAME})
 install(FILES src/od4ros.py DESTINATION bin COMPONENT ${PROJECT_NAME})
+install(FILES src/rosdemo.py DESTINATION bin COMPONENT ${PROJECT_NAME})
+install(FILES src/opendlv-standard-message-set-v0.9.4.odvd DESTINATION bin COMPONENT ${PROJECT_NAME})
