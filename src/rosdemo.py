@@ -9,7 +9,7 @@ import rospy
 from std_msgs.msg import String
    
 def dataFromOpendlv(data):
-  parsed = json.loads(data)
+  parsed = json.loads(data.data)
   print(json.dumps(parsed, indent=2))
 
 def start():
@@ -26,7 +26,7 @@ def start():
   }
 }'''
 
-    data = str(messageId) + message;
+    data = str(messageId) + "," + message;
 
     pub.publish(data)
     rate.sleep()

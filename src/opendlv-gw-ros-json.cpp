@@ -60,13 +60,9 @@ int32_t main(int32_t argc, char **argv)
 
     auto onIncomingTcpData([&od4, &envConverter](std::string &&data, std::chrono::system_clock::time_point &&) {
 
-        uint32_t messageId;
-
-        std::stringstream sstr;
-        sstr.str(data);
-        sstr.read(reinterpret_cast<char*>(&messageId), sizeof(uint32_t));
-
-        std::string json = data.substr(3);
+        uint32_t pos = data.find(',');
+        uint32_t messageId = stoi(data.substr(0, pos));
+        std::string json = data.substr(pos + 1);
 
         std::string proto{envConverter.getProtoEncodedEnvelopeFromJSONWithoutTimeStamps(json, messageId, 0)};
         cluon::data::Envelope env;

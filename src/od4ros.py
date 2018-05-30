@@ -3,67 +3,101 @@
 
 import roslib
 import rospy
+import threading
 
+import select
 import socket
 import sys
 
 from std_msgs.msg import String
 
+pub = rospy.Publisher('fromOpendlv', String, queue_size = 10)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-connections = []
+clients = []
+quitting = False
+isVerbose = False
 
 def dataFromRosToOd4(data):
-    global connections
+    global clients, isVerbose
 
-    liveConnections = []
-
-    for connection in connections:
+    for client in clients:
         try:
-            print('Python: data sent to Od4', data)
-            connection.sendall(data)
-            liveConnections.append(connection)
-        except:
+            if isVerbose:
+                print('Python: data sent from ROS to Od4', data.data)
+            dataBuffer = data.data.encode()
+            client.send(dataBuffer)
+        except Exception as e:
+            print(e)
             pass
-    
-    connections = liveConnections
 
 
 def dataFromOd4ToRos(pub, data):
-    print('Python: data sent to Ros', data)
+    global isVerbose
+
+    if isVerbose:
+        print('Python: data sent from Od4 to ROS', data)
     pub.publish(data)
 
-def start():
-    global connections, sock
+def listenToClient(client, address):
+    global pub, quitting, isVerbose
+
+    while not quitting:
+        try:
+            if isVerbose:
+                print('Python: connection from', address)
+            buffer = []
+            while not quitting:
+                data = client.recv(1024)
+                if data:
+                    for b in data:
+                        buffer.append(b)
+
+                    if str(buffer[-1]) == '}' and str(buffer[-2]) == '}':
+                        dataFromOd4ToRos(pub, ''.join(buffer))
+                        buffer = []
+        except Exception as e:
+            print(e)
+        finally:
+            client.close()
+
+
+def startTcpServer():
+    global sock, quitting
 
     tcpPort = 9000
 
-    print('Python: starting TCP server')
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(('localhost', tcpPort))
+    sock.listen(5)
 
-    server_address = ('localhost', tcpPort)
-    sock.bind(server_address)
-    sock.listen(1)
+    while not quitting:
+        rr,rw,err = select.select([sock], [], [], 1)
+        if rr:
+            client, address = sock.accept()
+            clients.append(client)
+            threading.Thread(target=listenToClient, args=(client,address)).start()
 
-    print('Python: setting up ROS node.')
-
-    pub = rospy.Publisher('fromOpendlv', String, queue_size = 10)
+def startRosNode():
     rospy.init_node('opendlvJson')
     rospy.Subscriber('toOpendlv', String, dataFromRosToOd4)
+    rate = rospy.Rate(1)
 
-    while True:
-        connection, client_address = sock.accept()
-        connections.append(connection)
+    while not rospy.is_shutdown():
+        rate.sleep()
 
-        try:
-            print('Connection from', client_address)
-            
-            buffer = []
-            while True:
-                data = connection.recv(1024)
-                for b in data:
-                    buffer.append(b)
+def start(verbose = False):
+    global sock, quitting, isVerbose
+ 
+    isVerbose = verbose
 
-                if str(buffer[-1]) == '}' and str(buffer[-2]) == '}':
-                    dataFromOd4ToRos(pub, ''.join(buffer))
-                    buffer = []
-        finally:
-            connection.close()
+    threading.Thread(target=startTcpServer).start()
+    startRosNode()
+    
+    quitting = True
+    sock.close()
+
+if __name__ == '__main__':
+  try:
+    start()
+  except rospy.ROSInterruptException:
+    pass
