@@ -18,7 +18,7 @@ cmake_minimum_required(VERSION 3.2)
 project(opendlv-gw-ros-json)
 
 set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.4.odvd)
-set(CLUON_COMPLETE cluon-complete-v0.0.85.hpp)
+set(CLUON_COMPLETE cluon-complete-v0.0.99.hpp)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ${CMAKE_MODULE_PATH})
 

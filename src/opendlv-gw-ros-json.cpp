@@ -75,51 +75,47 @@ int32_t main(int32_t argc, char **argv)
         od4.send(std::move(env));
       });
 
-    auto runPythonServer([&argc, &argv, &retCode, &VERBOSE]() {
+    auto runPythonServer([&argv, &argc, &retCode, &VERBOSE]() {
+
         Py_Initialize();
+        PyEval_InitThreads();
+        PySys_SetArgv(argc, argv);
+
+        std::string const PYTHON_SCRIPT = "od4ros";
+        PyObject *name = PyString_FromString(PYTHON_SCRIPT.c_str());
+
+        PyObject *pythonModule = PyImport_Import(name);
+        Py_DECREF(name);
+
         if (VERBOSE) {
           std::cout << "Python is initialized." << std::endl;
         }
 
-        PySys_SetArgv(argc, argv);
-        
-        std::string const PYTHON_SCRIPT = "od4ros";
-        PyObject *name = PyString_FromString(PYTHON_SCRIPT.c_str());
+        std::string const START_FUNC_NAME = "start";
+        PyObject *startRosFunc = PyObject_GetAttrString(pythonModule, START_FUNC_NAME.c_str());
 
-        PyObject *module = PyImport_Import(name);
-        Py_DECREF(name);
+        if (startRosFunc && PyCallable_Check(startRosFunc)) {
+          PyObject *args = PyTuple_Pack(1, PyBool_FromLong(static_cast<int64_t>(VERBOSE)));
 
-        if (module != nullptr) {
-          std::string const START_FUNC_NAME = "start";
-          PyObject *startRosFunc = PyObject_GetAttrString(module, START_FUNC_NAME.c_str());
-
-          if (startRosFunc && PyCallable_Check(startRosFunc)) {
-            PyObject *args = PyTuple_New(0);
-
-            PyObject *value = PyObject_CallObject(startRosFunc, args);
-            Py_DECREF(args);
-            if (value != nullptr) {
-              Py_DECREF(value);
-            } else {
-              Py_DECREF(startRosFunc);
-              Py_DECREF(module);
-              PyErr_Print();
-              std::cerr << "Could not call Python function '" << START_FUNC_NAME << "'." << std::endl;
-              retCode = 1;
-            }
+          PyObject *value = PyObject_CallObject(startRosFunc, args);
+          Py_DECREF(args);
+          if (value != nullptr) {
+            Py_DECREF(value);
           } else {
-            if (PyErr_Occurred()) {
-              PyErr_Print();
-            }
-            std::cerr << "Could not find Python function '" << START_FUNC_NAME << "'." << std::endl;
+            Py_DECREF(startRosFunc);
+            PyErr_Print();
+            std::cerr << "Could not call Python function '" << START_FUNC_NAME << "'." << std::endl;
+            retCode = 1;
           }
-          Py_XDECREF(startRosFunc);
-          Py_DECREF(module);
         } else {
-          PyErr_Print();
-          retCode = 1;
+          if (PyErr_Occurred()) {
+            PyErr_Print();
+          }
+          std::cerr << "Could not find Python function '" << START_FUNC_NAME << "'." << std::endl;
         }
-
+        Py_XDECREF(startRosFunc);
+    
+        Py_DECREF(pythonModule);
         Py_Finalize();
       });
 
@@ -131,6 +127,7 @@ int32_t main(int32_t argc, char **argv)
       std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
+    std::cout << "Will join thread" << std::endl;
     pythonServer.join();
   }
   return retCode;
