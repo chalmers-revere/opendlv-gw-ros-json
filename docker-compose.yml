@@ -1,0 +1,19 @@
+version: '2'
+
+services:
+    gw-ros-json:
+        image: chalmersrevere/opendlv-gw-ros-json-amd64:v0.0.1
+        network_mode: "host"
+        volumes:
+            - ./custom.odvd:/opt/custom.odvd
+        command: "opendlv-gw-ros-json --cid=111 --odvd=/opt/custom.odvd --verbose"
+  
+    gw-ros-json-roscore:
+        image: chalmersrevere/opendlv-gw-ros-json-amd64:v0.0.1
+        network_mode: "host"
+        command: "roscore"
+
+    ui-default:
+        image: chalmersrevere/opendlv-signal-viewer-multi:v0.0.8
+        network_mode: "host"
+        command: "--cid=111"

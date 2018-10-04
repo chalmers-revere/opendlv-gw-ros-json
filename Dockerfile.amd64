@@ -13,36 +13,34 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-FROM osblinnikov/rosdocker as builder
+FROM debian:stretch-slim as builder
 MAINTAINER Ola Benderius "ola.benderius@chalmers.se"
 
-RUN sudo apt-get update && sudo apt-get -y upgrade
-RUN sudo apt-get -y install python-dev software-properties-common
-
-RUN sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-RUN sudo add-apt-repository ppa:george-edison55/cmake-3.x
-RUN sudo apt-get update && sudo apt-get -y upgrade
-RUN sudo apt-get -y install gcc-6 g++-6 cmake
-RUN sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6
+RUN apt-get update
+RUN apt-get -y install cmake g++ python-dev make upx
 
 ADD . /opt/sources
 WORKDIR /opt/sources
-RUN sudo mkdir build && \
+RUN mkdir build && \
     cd build && \
-    sudo cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp/dest .. && \
-    sudo make && sudo make install
+    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp/build-dest .. && \
+    make && make install && upx -9 /tmp/build-dest/bin/opendlv-gw-ros-json
 
 
-FROM osblinnikov/rosdocker
+FROM debian:stretch-slim
 MAINTAINER Ola Benderius "ola.benderius@chalmers.se"
 
-#RUN sudo apt-get update && sudo apt-get -y upgrade
-#RUN sudo apt-get -y install software-properties-common
+RUN sed -i 's/$/ contrib non-free/' /etc/apt/sources.list
+RUN echo 'deb http://packages.ros.org/ros/ubuntu stretch main' > /etc/apt/sources.list.d/ros-latest.list
 
-#RUN sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-#RUN sudo apt-get update && sudo apt-get -y upgrade
-#RUN sudo apt-get -y install libstdc++-6-dev
+RUN apt-get update && apt-get -y --allow-unauthenticated install ros-melodic-ros-base
+RUN rosdep init && rosdep update
+
+RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+RUN echo "#!/bin/bash\n\nsource /opt/ros/melodic/setup.bash\neval \$*" > /usr/bin/run-with-ros-support && chmod +x /usr/bin/run-with-ros-support
+
+ENV PATH="${PATH}:/opt/ros/melodic/bin"
 
 WORKDIR /usr/bin
-COPY --from=builder /tmp/dest /usr
-CMD ["/usr/bin/opendlv-gw-ros-json"]
+COPY --from=builder /tmp/build-dest /usr
+ENTRYPOINT ["run-with-ros-support"]

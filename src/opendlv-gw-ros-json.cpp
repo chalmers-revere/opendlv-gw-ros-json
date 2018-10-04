@@ -50,19 +50,26 @@ int32_t main(int32_t argc, char **argv)
 
     std::unique_ptr<cluon::TCPConnection> tcpConnection;
 
-    auto onIncomingEnvelope([&tcpConnection, &envConverter](cluon::data::Envelope &&envelope) {
+    auto onIncomingEnvelope([&tcpConnection, &envConverter, &VERBOSE](cluon::data::Envelope &&envelope) {
         if (tcpConnection != nullptr && tcpConnection->isRunning()) {
-          std::string JSON = envConverter.getJSONFromEnvelope(envelope);
-          tcpConnection->send(std::move(JSON));
+          std::string json = envConverter.getJSONFromEnvelope(envelope);
+          if (VERBOSE) {
+            std::cout << "Sending data to ROS: " << json << std::endl;
+          }
+          tcpConnection->send(std::move(json));
         }
       });
     cluon::OD4Session od4{CID, onIncomingEnvelope};
 
-    auto onIncomingTcpData([&od4, &envConverter](std::string &&data, std::chrono::system_clock::time_point &&) {
+    auto onIncomingTcpData([&od4, &envConverter, &VERBOSE](std::string &&data, std::chrono::system_clock::time_point &&) {
 
         uint32_t pos = data.find(',');
         uint32_t messageId = stoi(data.substr(0, pos));
         std::string json = data.substr(pos + 1);
+
+        if (VERBOSE) {
+          std::cout << "Got data from ROS: " << json << std::endl;
+        }
 
         std::string proto{envConverter.getProtoEncodedEnvelopeFromJSONWithoutTimeStamps(json, messageId, 0)};
         cluon::data::Envelope env;

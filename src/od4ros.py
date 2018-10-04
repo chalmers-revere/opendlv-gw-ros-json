@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # Copyright (C) 2018 Ola Benderius
 
 import roslib

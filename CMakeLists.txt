@@ -18,7 +18,7 @@ cmake_minimum_required(VERSION 3.2)
 project(opendlv-gw-ros-json)
 
 set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.4.odvd)
-set(CLUON_COMPLETE cluon-complete-v0.0.99.hpp)
+set(CLUON_COMPLETE cluon-complete-v0.0.113.hpp)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ${CMAKE_MODULE_PATH})
 
@@ -43,9 +43,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
     -Wmissing-field-initializers -Wmissing-format-attribute -Wmissing-include-dirs -Wmissing-noreturn")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-
-set(PYTHON_INCLUDE_DIRS "/usr/include/python2.7")
-set(PYTHON_LIBRARIES "/usr/lib/python2.7/config-x86_64-linux-gnu/libpython2.7.so")
+find_package(PythonLibs REQUIRED)
 
 ################################################################################
 add_custom_command(OUTPUT cluon-complete.hpp
