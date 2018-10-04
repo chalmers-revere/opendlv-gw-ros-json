@@ -20,11 +20,7 @@ def start():
 
   while not rospy.is_shutdown():
     messageId = 19;
-    message = '''{"opendlv_proxy_GeodeticWgs84Reading": {
-    "latitude" : 11.94745,
-    "longitude" : 57.70906
-  }
-}'''
+    message = '''{"latitude":11.94745,"longitude":57.70906}'''
 
     data = str(messageId) + "," + message;
 
